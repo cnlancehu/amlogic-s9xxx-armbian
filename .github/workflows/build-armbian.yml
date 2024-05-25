@@ -330,21 +330,26 @@ jobs:
           armbian_fstype: ${{ inputs.armbian_fstype }}
           builder_name: lance
 
-      - name: Upload Rebuild image to Release
-        uses: ncipollo/release-action@main
-        if: ${{ env.PACKAGED_STATUS }} == 'success' && !cancelled()
+      # - name: Upload Rebuild image to Release
+      #   uses: ncipollo/release-action@main
+      #   if: ${{ env.PACKAGED_STATUS }} == 'success' && !cancelled()
+      #   with:
+      #     tag: ${{ steps.clean.outputs.build_tag }}
+      #     artifacts: ${{ env.PACKAGED_OUTPUTPATH }}/*
+      #     allowUpdates: true
+      #     removeArtifacts: false
+      #     replacesArtifacts: true
+      #     token: ${{ secrets.GITHUB_TOKEN }}
+      #     body: |
+      #       ### Armbian Image information
+      #       - Default username: root
+      #       - Default password: 1234
+      #       - Install command: armbian-install
+      #       - Update command: armbian-update
+      #       ### Armbian Image Verification
+      #       - sha256sum
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4.3.3
         with:
-          tag: ${{ steps.clean.outputs.build_tag }}
-          artifacts: ${{ env.PACKAGED_OUTPUTPATH }}/*
-          allowUpdates: true
-          removeArtifacts: false
-          replacesArtifacts: true
-          token: ${{ secrets.GITHUB_TOKEN }}
-          body: |
-            ### Armbian Image information
-            - Default username: root
-            - Default password: 1234
-            - Install command: armbian-install
-            - Update command: armbian-update
-            ### Armbian Image Verification
-            - sha256sum
+          path: ${{ env.PACKAGED_OUTPUTPATH }}/*
