@@ -26,6 +26,7 @@
 # software_307  : For kvm
 # software_308  : For pve
 # software_309  : For casaos
+# software_310  : For arozos
 #
 #============================================================================
 
@@ -334,11 +335,12 @@ EOF
     esac
 }
 
-# For pve, Tutorials for using [ Cooip JM ]
+# For pve, Tutorials for using [ Cooip-JM: https://github.com/cooip-jm/About-openwrt/wiki ]
 software_308() {
     # pve general settings
     my_interfaces="/etc/network/interfaces"
     pve_package_list="pve-manager proxmox-ve"
+    networking_package_list="ifupdown2 resolvconf bridge-utils lm-sensors"
 
     case "${software_manage}" in
     install)
@@ -360,6 +362,9 @@ software_308() {
 
         # Declare PATH
         export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+        echo -e "${STEPS} Start installing networking packages..."
+        software_install "${networking_package_list}"
 
         # Add network settings
         echo -e "${STEPS} Start adding network settings..."
@@ -406,6 +411,32 @@ EOF
 127.0.0.1	localhost
 ${my_address}	${my_hostname}
 EOF
+
+        # Adjust the DNS settings
+        sed -i "s|nameserver.*|nameserver ${my_gateway}|g" /etc/resolv.conf
+
+        # Disable systemd-networkd and NetworkManager
+        networkmanager_status_check="$(systemctl is-active NetworkManager)"
+        if [[ "${networking_status_check}" == "active" ]]; then
+            echo -e "${INFO} Disable systemd-networkd and NetworkManager..."
+            sudo systemctl disable systemd-networkd
+            sudo systemctl disable systemd-networkd.socket
+            sudo systemctl disable NetworkManager
+            sudo systemctl stop NetworkManager
+            sudo systemctl daemon-reload
+        fi
+
+        # Install networking packages
+        networking_status_check="$(systemctl is-active networking)"
+        if [[ "${networking_status_check}" != "active" ]]; then
+            echo -e "${INFO} Enable networking..."
+            sudo systemctl enable --now networking
+            sudo systemctl restart networking
+            sudo systemctl daemon-reload
+            echo -e "${NOTE} Network adjustments require a reboot. Please try again after restarting."
+            sudo sync && sudo reboot
+            exit 0
+        fi
 
         echo -e "${STEPS} Start installing packages..."
         software_install "${pve_package_list}"
@@ -499,6 +530,35 @@ software_309() {
     remove)
         sudo casaos-uninstall
         echo -e "${SUCCESS} CasaOS uninstallation successful."
+        ;;
+    *) error_msg "Invalid input parameter: [ ${@} ]" ;;
+    esac
+}
+
+# For arozos
+software_310() {
+    case "${software_manage}" in
+    install)
+        echo -e "${STEPS} Start installing ArozOS..."
+        wget -O install.sh https://raw.githubusercontent.com/tobychui/arozos/master/installer/install.sh && bash install.sh
+
+        sync && sleep 3
+
+        echo -e "${SUCCESS} ArozOS installation successful."
+        ;;
+    update) software_update ;;
+    remove)
+        # Stop and disable the ArozOS service
+        sudo systemctl stop arozos.service 2>/dev/null
+        sudo systemctl disable arozos.service 2>/dev/null
+        sudo rm -f /etc/systemd/system/arozos.service 2>/dev/null
+        sudo systemctl daemon-reload
+
+        # Uninstall ArozOS
+        sudo rm -rf ~/arozos
+
+        sync && sleep 3
+        echo -e "${SUCCESS} ArozOS uninstallation successful."
         ;;
     *) error_msg "Invalid input parameter: [ ${@} ]" ;;
     esac
